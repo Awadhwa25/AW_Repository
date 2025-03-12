@@ -1,0 +1,45 @@
+name: Authenticate and Fetch Data from SmartIQDev
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to `main` branch.
+
+jobs:
+  authenticate:
+    runs-on: windows-latest  # Use Windows runner for Windows-based operations.
+
+    steps:
+    # Step 1: Checkout the repository code
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # Step 2: Authenticate with SmartIQDev using the GitHub secrets for username and password
+    - name: Authenticate with SmartIQDev
+      run: |
+        # Send POST request to SmartIQDev's authentication endpoint using PowerShell
+        $response = Invoke-RestMethod -Uri https://apacpsdemo-smartiq.ap20-sb.smartcommunications.cloud/manage/api/v1/admin/login/forms `
+          -Method Post `
+          -ContentType "application/json" `
+          -Body '{"username": "${{ secrets.SMARTIQ_USERNAME }}", "password": "${{ secrets.SMARTIQ_PASSWORD }}"}'
+
+        # Extract the token from the response
+        $TOKEN = $response.token
+
+        # Output the token (optional for debugging purposes)
+        Write-Host "Authentication successful, token: $TOKEN"
+
+        # Save the token as an environment variable for future steps
+        echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+
+    # Step 3: Fetch Project Package from SmartIQDev using the token
+    - name: Fetch Project Package
+      run: |
+        # Use the saved token to make a GET request for the project package (ixpkg)
+        $token = $env:TOKEN
+        $url = "https://apacpsdemo-smartiq.ap20-sb.smartcommunications.cloud/manage/api/v1/admin/projects/a4e25ea8-f45e-482a-b5a8-da913955503e/export/base64"  # export URL
+        $headers = @{ "Authorization" = "Bearer $token" }
+        $response = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+        
+        # Output the result (for debugging purposes)
+        Write-Host "Project package retrieved successfully."
